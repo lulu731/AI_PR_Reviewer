@@ -3,9 +3,9 @@
  * @module notify-claw
  */
 
-require('dotenv').config();
-const https = require('https');
-const { TelegramSendError } = require('./errors');
+import 'dotenv/config';
+import https from 'https';
+import { TelegramSendError } from './errors.js';
 
 const MAX_MESSAGE_LENGTH = 4096; // Telegram message limit
 
@@ -161,11 +161,11 @@ async function main() {
 }
 
 // Run if this is the main module
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-module.exports = {
+export {
   formatMessage,
   sendTelegramMessage
 };

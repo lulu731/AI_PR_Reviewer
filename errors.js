@@ -60,7 +60,7 @@ class GitHubAPIError extends BaseError {
   }
 }
 
-module.exports = {
+export {
   BaseError,
   DiffSanitizationError,
   TelegramSendError,

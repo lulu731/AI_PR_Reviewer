@@ -3,9 +3,9 @@
  * @module get-diff
  */
 
-require('dotenv').config();
-const { Octokit } = require('@octokit/rest');
-const { GitHubAPIError, DiffSanitizationError } = require('./errors');
+import 'dotenv/config';
+import { Octokit } from '@octokit/rest';
+import { GitHubAPIError, DiffSanitizationError } from './errors.js';
 
 // Secret redaction patterns
 const SECRET_PATTERNS = [
@@ -183,11 +183,11 @@ async function main() {
 }
 
 // Run if this is the main module
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
-module.exports = {
+export {
   fetchDiff,
   sanitizeDiff,
   trimToTokenLimit,
