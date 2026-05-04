@@ -88,7 +88,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
    - OpenClaw agent asynchronously processes review and responds via Telegram
 
 2. **Technical Implementation**:
-   - Use Node.js (CommonJS) with `@octokit/rest` for GitHub API access
+   - Use Node.js (ES Modules, ESM) with `@octokit/rest` for GitHub API access
    - Implement `dotenv` for environment variable management
    - Use Telegram Bot API (`https://api.telegram.org/bot<TOKEN>/sendMessage`) for OpenClaw integration
    - Store workflow in `.github/workflows/pr-review.yml`
@@ -119,9 +119,10 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 3. GitHub Actions workflow depends on both scripts
 4. `get-diff.js` depends on `dotenv` for configuration
 5. `prompts/pr-reviewer.md` is read by OpenClaw agent (external dependency)
+6. `errors.js` provides custom error classes (BaseError, DiffSanitizationError, etc.) used by `get-diff.js` and `notify-claw.js`
 
 ### Layered Architecture
-1. **Script Layer**: `get-diff.js` and `notify-claw.js` - entry points for GitHub Actions
+1. **Script Layer**: `get-diff.js`, `notify-claw.js`, and `errors.js` (shared) - entry points and shared error handling for GitHub Actions
 2. **Processing Layer**: Diff sanitization logic, token counting, message formatting
 3. **Integration Layer**: GitHub API (Octokit), Telegram Bot API
 4. **Configuration Layer**: Environment variables (`.env`), workflow secrets
@@ -142,7 +143,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
    - `GitHubAPIError` extends `BaseError`:
      - Code: `GITHUB_API_FAILED`
 3. Methods: None (constructor only)
-4. Annotations: None
+4. Annotations: None (ESM export from errors.js)
 5. Constraints: Must provide meaningful error messages; must not expose secrets in details
 
 ### Create Script - get-diff.js
@@ -177,7 +178,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - Call fetchDiff, sanitizeDiff, trimToTokenLimit
        - Output sanitized diff to stdout (for GitHub Actions)
        - Catch errors and exit with code 1
-4. Annotations: None (CommonJS, not TypeScript)
+4. Annotations: None (ESM, not TypeScript)
 5. Constraints: Must not log raw diff (security); must handle empty diffs gracefully
 
 ### Create Script - notify-claw.js
@@ -200,6 +201,11 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - Use Node.js built-in `https` module (Node 18+ compatible)
        - Parse response, check `ok` field
        - Error handling: throw TelegramSendError on failure
+   - `readStdin()`: Promise<string>
+     - Logic:
+       - Read piped input from stdin
+       - Resolve with trimmed input string
+       - If no stdin (TTY), resolve with empty string
    - `main()`: void
      - Logic:
        - Load env vars
@@ -207,7 +213,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - Call formatMessage, sendTelegramMessage
        - Log success message
        - Catch errors, exit with code 1
-4. Annotations: None (CommonJS)
+4. Annotations: None (ESM)
 5. Constraints: Message length must respect Telegram limits (4096 chars); must not include raw diff in message (only URL)
 
 ### Create GitHub Actions Workflow - .github/workflows/pr-review.yml
@@ -266,7 +272,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 
 ## Norms
 
-1. **Module Standards**: Use CommonJS (`require`/`module.exports`), not ES modules. File extensions: `.js`.
+1. **Module Standards**: Use ES Modules (ESM) with `import`/`export` syntax, not CommonJS. File extensions: `.js`. Ensure `package.json` includes `"type": "module"` to enable ESM.
 
 2. **Dependency Injection**: Pass dependencies via function parameters (e.g., `octokit` instance) rather than global singletons. For scripts, instantiate at top of file.
 
@@ -335,7 +341,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
    - Workflow must fail explicitly on script errors (exit code 1)
 
 7. **Technical Constraints**:
-   - Node.js version: 18+ (for fetch API support if using node-fetch)
+   - Node.js version: 18+ (for ESM support and built-in fetch/https modules)
    - Must use `@octokit/rest` v19+ for GitHub API
    - Must use `dotenv` v16+ for configuration
    - Must not require external databases or persistent storage
