@@ -93,3 +93,75 @@ Date: 2026-05-04 14:17:00 (Europe/Paris)
 - `spdd/prompt/GGQPA-XXX-202604292320-[Feat]-ai-pr-reviewer.md` - 8 sections updated
 
 The prompt file now accurately reflects the actual ESM-based implementation.
+
+## SPDD Sync - Orchestrator Architecture Update (Completed: 2026-04-05 23:42)
+Date: 2026-04-05 23:42:00 (Europe/Paris)
+
+### Trigger
+- Task: Update prompt file to reflect new architecture where `index.js` orchestrator calls `get-diff.js` and `notify-claw.js`
+- Scope: Sanitized diff should be exported by `get-diff.js` and used in `notify-claw.js` message
+
+### Changes Identified
+1. **New Function in get-diff.js**: `getSanitizedDiff(prUrl)`
+   - Orchestrates `fetchDiff()`, `sanitizeDiff()`, `trimToTokenLimit()` in sequence
+   - Returns final sanitized diff ready for use
+   - Must be exported for use by `index.js`
+
+2. **Updated notify-claw.js**: `formatMessage(prUrl, sanitizedDiff)`
+   - Now accepts sanitized diff as second parameter
+   - Message includes diff in code blocks with proper formatting
+   - Handles Telegram's 4096 character limit by truncating diff if necessary
+
+3. **New Script - index.js (Orchestrator)**
+   - Main entry point called by GitHub Actions workflow
+   - Imports `getSanitizedDiff` from `get-diff.js`
+   - Imports `formatMessage` and `sendTelegramMessage` from `notify-claw.js`
+   - Handles all error handling and validation
+   - Exits with non-zero code on failure
+
+4. **Removed main() Functions**
+   - `get-diff.js`: No longer has `main()` function (used by index.js instead)
+   - `notify-claw.js`: No longer has `main()` function (used by index.js instead)
+
+### Prompt Updates Applied
+
+**1. get-diff.js Section**
+- Updated responsibility: "Fetch PR diff from GitHub, sanitize it, and export functions for use by orchestrator"
+- Added `getSanitizedDiff(prUrl)` method documentation
+- Updated exports list to include `getSanitizedDiff`
+- Added constraint: "no main() function - used by index.js orchestrator"
+
+**2. notify-claw.js Section**
+- Updated responsibility: "Send Telegram message to OpenClaw bot with PR URL and sanitized diff (used by index.js orchestrator)"
+- Updated `formatMessage(prUrl, sanitizedDiff)` to accept sanitized diff parameter
+- Added message format showing diff in code blocks with truncation logic
+- Removed `main()` function documentation
+- Added constraint: "no main() function - used by index.js orchestrator"
+
+**3. New Section - index.js (Orchestrator)**
+- Added complete documentation for the new orchestrator script
+- Documented `main()` function that:
+  - Validates required environment variables
+  - Calls `getSanitizedDiff(prUrl)` to get sanitized diff
+  - Calls `formatMessage(prUrl, sanitizedDiff)` to create message
+  - Calls `sendTelegramMessage(message)` to send notification
+- Listed imports from `get-diff.js` and `notify-claw.js`
+
+**4. GitHub Actions Workflow Section**
+- Updated to call `node index.js` instead of calling scripts separately
+- Environment variables now passed to `index.js`
+- Added constraint: "index.js handles orchestration"
+
+**5. Safeguards Section**
+- Updated Functional Constraints: "Must send sanitized diff in Telegram message (not raw/un-sanitized diff)"
+
+### Validation Results
+- ✅ Internal consistency: `index.js` referenced in workflow and as orchestrator
+- ✅ Traceability: `getSanitizedDiff()` exported from `get-diff.js`, used by `index.js`
+- ✅ Completeness: All architectural changes documented in prompt
+- ✅ No main() functions in `get-diff.js` and `notify-claw.js` (as per new architecture)
+
+### Files Modified
+- `spdd/prompt/GGQPA-XXX-202604292320-[Feat]-ai-pr-reviewer.md` - 5 sections updated, 1 new section added
+
+The prompt file now accurately reflects the orchestrator-based architecture with `index.js` as the entry point.
