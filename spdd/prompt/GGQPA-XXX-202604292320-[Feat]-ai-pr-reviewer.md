@@ -147,7 +147,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 5. Constraints: Must provide meaningful error messages; must not expose secrets in details
 
 ### Create Script - get-diff.js
-1. Responsibility: Fetch PR diff from GitHub and output sanitized version
+1. Responsibility: Fetch PR diff from GitHub, sanitize it, and export functions for use by orchestrator
 2. Attributes:
    - `octokit`: Octokit instance - GitHub API client
    - `prUrl`: string - PR URL from environment or input
@@ -171,28 +171,28 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - If under limit, return as-is
        - If over limit, truncate with `... [truncated]` suffix
        - Preserve diff headers (---, +++) for context
-   - `main()`: void
+   - `getSanitizedDiff(prUrl)`: string
      - Logic:
-       - Load env vars from `.env` (dotenv)
-       - Get PR URL from `process.env.PR_URL` or command line args
-       - Call fetchDiff, sanitizeDiff, trimToTokenLimit
-       - Output sanitized diff to stdout (for GitHub Actions)
-       - Catch errors and exit with code 1
-4. Annotations: None (ESM, not TypeScript)
-5. Constraints: Must not log raw diff (security); must handle empty diffs gracefully
+       - Orchestrates fetchDiff, sanitizeDiff, trimToTokenLimit in sequence
+       - Returns the final sanitized diff ready for use
+       - Error handling: propagates errors from underlying functions
+4. Exports: `fetchDiff`, `sanitizeDiff`, `trimToTokenLimit`, `parsePrUrl`, `getSanitizedDiff`
+5. Annotations: None (ESM, not TypeScript)
+6. Constraints: Must not log raw diff (security); must handle empty diffs gracefully; no main() function - used by index.js orchestrator
 
 ### Create Script - notify-claw.js
-1. Responsibility: Send Telegram message to OpenClaw bot with PR URL
+1. Responsibility: Send Telegram message to OpenClaw bot with PR URL and sanitized diff (used by index.js orchestrator)
 2. Attributes:
    - `botToken`: string - Telegram bot token from env
    - `chatId`: string - OpenClaw chat ID from env
    - `prUrl`: string - PR URL to send
    - `message`: string - formatted message
 3. Methods:
-   - `formatMessage(prUrl)`: string
+   - `formatMessage(prUrl, sanitizedDiff)`: string
      - Logic:
-       - Create message: `🔍 New PR Review Request\n\nPR: ${prUrl}\n\nPlease review this PR and provide structured feedback.`
-       - Include instructions for OpenClaw agent
+       - Create message with PR URL and sanitized diff content
+       - Message format: `🔍 New PR Review Request\n\nPR: ${prUrl}\n\nDiff:\n\`\`\`diff\n${sanitizedDiff}\n\`\`\`\n\nPlease review this PR and provide structured feedback.`
+       - Truncate diff if message exceeds 4096 chars (Telegram limit), keeping PR URL intact
        - Return formatted string
    - `sendTelegramMessage(message)`: Promise<void>
      - Logic:
@@ -201,23 +201,32 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - Use Node.js built-in `https` module (Node 18+ compatible)
        - Parse response, check `ok` field
        - Error handling: throw TelegramSendError on failure
-   - `readStdin()`: Promise<string>
+4. Exports: `formatMessage`, `sendTelegramMessage`
+5. Annotations: None (ESM)
+6. Constraints: Message length must respect Telegram limits (4096 chars); sanitized diff must be included in message; no main() function - used by index.js orchestrator
+
+### Create Script - index.js (Orchestrator)
+1. Responsibility: Orchestrate the PR review workflow by calling get-diff.js and notify-claw.js functions
+2. Attributes: None (uses imported functions)
+3. Methods:
+   - `main()`: Promise<void>
      - Logic:
-       - Read piped input from stdin
-       - Resolve with trimmed input string
-       - If no stdin (TTY), resolve with empty string
-   - `main()`: void
-     - Logic:
-       - Load env vars
-       - Get PR URL from stdin (piped from get-diff.js) or env
-       - Call formatMessage, sendTelegramMessage
-       - Log success message
-       - Catch errors, exit with code 1
-4. Annotations: None (ESM)
-5. Constraints: Message length must respect Telegram limits (4096 chars); must not include raw diff in message (only URL)
+       - Load env vars from `.env` (dotenv)
+       - Get PR URL from `process.env.PR_URL` or command line args
+       - Validate required env vars: `GITHUB_TOKEN`, `TELEGRAM_BOT_TOKEN`, `OPENCLAW_CHAT_ID`
+       - Call `getSanitizedDiff(prUrl)` from `get-diff.js` to get sanitized diff
+       - Call `formatMessage(prUrl, sanitizedDiff)` from `notify-claw.js`
+       - Call `sendTelegramMessage(message)` from `notify-claw.js`
+       - Log success message: "✅ PR review request sent to OpenClaw"
+       - Catch errors, log with context, exit with code 1
+4. Imports:
+   - `getSanitizedDiff` from `./get-diff.js`
+   - `formatMessage`, `sendTelegramMessage` from `./notify-claw.js`
+5. Annotations: None (ESM)
+6. Constraints: Must handle all errors gracefully; must exit with non-zero code on failure
 
 ### Create GitHub Actions Workflow - .github/workflows/pr-review.yml
-1. Responsibility: Orchestrate PR review on pull_request events
+1. Responsibility: Orchestrate PR review on pull_request events by calling index.js orchestrator
 2. Configuration:
    - Name: `AI PR Reviewer`
    - Trigger: `pull_request` types: `[opened, reopened, synchronize]`
@@ -229,18 +238,18 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
          1. Checkout repo (optional, for context)
          2. Setup Node.js (v18)
          3. Install dependencies: `npm install @octokit/rest dotenv`
-         4. Fetch and sanitize diff:
-            - Run: `node get-diff.js`
-            - Env: `GITHUB_TOKEN`, `PR_URL` (from `github.event.pull_request.html_url`)
-            - Output diff to file or variable
-         5. Notify OpenClaw:
-            - Run: `node notify-claw.js`
-            - Env: `TELEGRAM_BOT_TOKEN`, `OPENCLAW_CHAT_ID`, `PR_URL`
-            - Input: PR URL (or piped diff summary)
-         6. Error handling: If any step fails, log error and exit
+         4. Run orchestrator:
+            - Run: `node index.js`
+            - Env:
+              - `GITHUB_TOKEN`: from GitHub Actions secret
+              - `PR_URL`: from `github.event.pull_request.html_url`
+              - `TELEGRAM_BOT_TOKEN`: from GitHub Actions secret
+              - `OPENCLAW_CHAT_ID`: from GitHub Actions secret
+              - `MAX_TOKENS`: optional (default 8000)
+         5. Error handling: If step fails, log error and exit with non-zero code
 3. Methods: None (YAML configuration)
 4. Annotations: None
-5. Constraints: Must not log secrets; must use GitHub's `GITHUB_TOKEN` for API access
+5. Constraints: Must not log secrets; must use GitHub's `GITHUB_TOKEN` for API access; index.js handles orchestration
 
 ### Create System Prompt - prompts/pr-reviewer.md
 1. Responsibility: Define OpenClaw agent behavior for PR reviews
@@ -306,7 +315,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 1. **Functional Constraints**:
    - Must only trigger on PR events of types: opened, reopened, synchronize
    - Must not process PRs with empty diffs (skip silently or log warning)
-   - Must not send full diff in Telegram message (only URL)
+   - Must send sanitized diff in Telegram message (not raw/un-sanitized diff)
    - Must validate OpenClaw response structure before trusting
 
 2. **Performance Constraints**:
