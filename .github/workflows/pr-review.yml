@@ -6,11 +6,11 @@ on:
 
 concurrency:
   group: pr-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   review:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,15 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm install @octokit/rest dotenv
 
-      - name: Fetch and sanitize diff
+      - name: Run PR review orchestrator
+        run: node index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: node get-diff.js
-
-      - name: Notify OpenClaw
-        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           OPENCLAW_CHAT_ID: ${{ secrets.OPENCLAW_CHAT_ID }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: node notify-claw.js
+          MAX_TOKENS: ${{ vars.MAX_TOKENS }}
