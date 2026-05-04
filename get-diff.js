@@ -164,7 +164,7 @@ async function main() {
     if (!diff || diff.trim().length === 0) {
       console.log('⚠️ Empty diff, skipping output');
       process.exit(0);
-    }debug
+    }
 
     const sanitized = sanitizeDiff(diff);
     const trimmed = trimToTokenLimit(sanitized, MAX_TOKENS);
