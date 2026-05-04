@@ -143,53 +143,27 @@ function trimToTokenLimit(diff, maxTokens) {
 }
 
 /**
- * Main function
+ * Orchestrate fetching, sanitizing, and trimming the diff
+ * @param {string} prUrl - GitHub PR URL
+ * @returns {string} Sanitized and trimmed diff
  */
-async function main() {
-  try {
-    const prUrl = process.env.PR_URL || process.argv[2];
+async function getSanitizedDiff(prUrl) {
+  const diff = await fetchDiff(prUrl);
 
-    if (!prUrl) {
-      console.error('❌ Error: PR_URL environment variable or command line argument is required');
-      process.exit(1);
-    }
-
-    if (!process.env.GITHUB_TOKEN) {
-      console.error('❌ Error: GITHUB_TOKEN environment variable is required');
-      process.exit(1);
-    }
-
-    const diff = await fetchDiff(prUrl);
-
-    if (!diff || diff.trim().length === 0) {
-      console.log('⚠️ Empty diff, skipping output');
-      process.exit(0);
-    }
-
-    const sanitized = sanitizeDiff(diff);
-    const trimmed = trimToTokenLimit(sanitized, MAX_TOKENS);
-
-    // Output to stdout for GitHub Actions
-    process.stdout.write(trimmed);
-
-    console.log('\n✅ Diff fetched and sanitized successfully');
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    if (error instanceof GitHubAPIError || error instanceof DiffSanitizationError) {
-      console.error(`   Code: ${error.code}`);
-    }
-    process.exit(1);
+  if (!diff || diff.trim().length === 0) {
+    console.log('⚠️ Empty diff, skipping processing');
+    return '';
   }
-}
 
-// Run if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  const sanitized = sanitizeDiff(diff);
+  const trimmed = trimToTokenLimit(sanitized, MAX_TOKENS);
+  return trimmed;
 }
 
 export {
   fetchDiff,
   sanitizeDiff,
   trimToTokenLimit,
-  parsePrUrl
+  parsePrUrl,
+  getSanitizedDiff
 };
