@@ -24,19 +24,19 @@ function formatMessage(prUrl, sanitizedDiff) {
   // Add diff content
   const diffSection = sanitizedDiff || '(no diff available)';
   message += diffSection;
-  message += '\n```\n\nReview this PR and provide structured feedback.';
+  message += '\n```\n\nReview this PR and provide structured feedback. Use ai-pr-reviewer skill.';
 
   // Check if message exceeds Telegram limit
   if (message.length > MAX_MESSAGE_LENGTH) {
     console.warn(`⚠️ Message length (${message.length}) exceeds Telegram limit, truncating diff...`);
 
     // Calculate available space for diff (reserve space for PR URL and formatting)
-    const baseLength = '🔍 New PR Review Request\n\nPR: \n\nDiff:\n```diff\n```\n\nReview this PR and provide structured feedback.'.length + prUrl.length;
+    const baseLength = '🔍 New PR Review Request\n\nPR: \n\nDiff:\n```diff\n```\n\nReview this PR and provide structured feedback. Use ai-pr-reviewer skill.'.length + prUrl.length;
     const availableForDiff = MAX_MESSAGE_LENGTH - baseLength - 100; // 100 char buffer
 
     if (availableForDiff > 0) {
       const truncatedDiff = sanitizedDiff.substring(0, availableForDiff) + '\n... [truncated]';
-      message = '🔍 New PR Review Request\n\nPR: ' + prUrl + '\n\nDiff:\n```diff\n' + truncatedDiff + '\n```\n\nReview this PR and provide structured feedback.';
+      message = '🔍 New PR Review Request\n\nPR: ' + prUrl + '\n\nDiff:\n```diff\n' + truncatedDiff + '\n```\n\nReview this PR and provide structured feedback. Use ai-pr-reviewer skill.';
     } else {
       // If even base message is too long, truncate the entire message
       message = message.substring(0, MAX_MESSAGE_LENGTH - 100) + '\n\n... [truncated]';
