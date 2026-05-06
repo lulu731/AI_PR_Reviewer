@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Run PR review orchestrator
-        run: node index.js
+        run: node --max-old-space-size=2048 index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
