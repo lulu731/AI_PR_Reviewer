@@ -21,7 +21,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install @octokit/rest dotenv tdl prebuilt-tdlib
+        run: npm install
 
       - name: Run PR review orchestrator
         run: node index.js
