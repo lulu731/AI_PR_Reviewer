@@ -11,9 +11,6 @@ import { GitHubAPIError, DiffSanitizationError } from './errors.js';
 const SECRET_PATTERNS = [
   /AKIA[0-9A-Z]{16}/g,           // AWS API keys
   /ghp_[a-zA-Z0-9]{36}/g,        // GitHub personal access tokens
-  /glpat-[a-zA-Z0-9\-_]{20}/g,   // GitLab personal access tokens
-  /(?<![A-Za-z0-9_])password['"]?\s*[:=]\s*['"]?[^\s'"]+/gi, // password patterns
-  /-----BEGIN [A-Z]+ PRIVATE KEY-----.+-----END [A-Z]+ PRIVATE KEY-----/gs // Private keys
 ];
 
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS) || 8000;
