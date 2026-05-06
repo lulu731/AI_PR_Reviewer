@@ -47,6 +47,52 @@ function formatMessage(prUrl, sanitizedDiff) {
 }
 
 /**
+ * Resolve chat ID from string (numeric or @username)
+ * @param {object} client - TDLib client instance
+ * @param {string} chatIdStr - Chat ID string (numeric or @username)
+ * @returns {Promise<number>} Numeric chat ID
+ */
+async function resolveChatId(client, chatIdStr) {
+  // If it's numeric, parse and return
+  if (/^\d+$/.test(chatIdStr)) {
+    return parseInt(chatIdStr, 10);
+  }
+
+  // If it starts with @, it's a username - search for public chat
+  if (chatIdStr.startsWith('@')) {
+    const username = chatIdStr.substring(1);
+    console.log(`🔍 Resolving chat username: ${username}...`);
+
+    try {
+      const chat = await client.invoke({
+        _: 'searchPublicChat',
+        username: username
+      });
+
+      if (chat && chat.id) {
+        console.log(`✅ Resolved @${username} to chat ID: ${chat.id}`);
+        return chat.id;
+      }
+      throw new Error(`Chat not found for username: ${username}`);
+    } catch (error) {
+      throw new TelegramSendError(`Failed to resolve chat username: ${error.message}`, {
+        username: username
+      });
+    }
+  }
+
+  // Try to parse as number anyway (handles string numbers)
+  const parsed = parseInt(chatIdStr, 10);
+  if (!isNaN(parsed)) {
+    return parsed;
+  }
+
+  throw new TelegramSendError(`Invalid chat ID format: ${chatIdStr}. Must be numeric or @username.`, {
+    chatId: chatIdStr
+  });
+}
+
+/**
  * Send message via Telegram using tdl (user client, not bot API)
  * @param {string} message - Message text to send
  * @returns {Promise<void>}
@@ -54,7 +100,7 @@ function formatMessage(prUrl, sanitizedDiff) {
 async function sendTelegramMessage(message) {
   const apiId = process.env.TELEGRAM_API_ID;
   const apiHash = process.env.TELEGRAM_API_HASH;
-  const chatId = process.env.OPENCLAW_CHAT_ID;
+  const chatIdStr = process.env.OPENCLAW_CHAT_ID;
 
   if (!apiId) {
     throw new TelegramSendError('TELEGRAM_API_ID environment variable is required', {});
@@ -64,7 +110,7 @@ async function sendTelegramMessage(message) {
     throw new TelegramSendError('TELEGRAM_API_HASH environment variable is required', {});
   }
 
-  if (!chatId) {
+  if (!chatIdStr) {
     throw new TelegramSendError('OPENCLAW_CHAT_ID environment variable is required', {});
   }
 
@@ -87,12 +133,15 @@ async function sendTelegramMessage(message) {
     console.log('📤 Logging in to Telegram as user...');
     await client.login();
 
+    // Resolve chat ID (handles both numeric and @username formats)
+    const chatId = await resolveChatId(client, chatIdStr);
+
     console.log(`📤 Sending message to chat ${chatId}...`);
 
     // Send message using TDLib sendMessage method
     await client.invoke({
       _: 'sendMessage',
-      chat_id: parseInt(chatId, 10),
+      chat_id: chatId,
       input_message_content: {
         _: 'inputMessageText',
         text: {

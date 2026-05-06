@@ -22,16 +22,16 @@ async function main() {
     const openclawChatId = process.env.OPENCLAW_CHAT_ID;
 
     if (!githubToken) {
-      throw new Error('GITHUB_TOKEN environment variable is required');
+      throw new GitHubAPIError('GITHUB_TOKEN environment variable is required', {});
     }
     if (!telegramApiId) {
-      throw new Error('TELEGRAM_API_ID environment variable is required');
+      throw new TelegramSendError('TELEGRAM_API_ID environment variable is required', {});
     }
     if (!telegramApiHash) {
-      throw new Error('TELEGRAM_API_HASH environment variable is required');
+      throw new TelegramSendError('TELEGRAM_API_HASH environment variable is required', {});
     }
     if (!openclawChatId) {
-      throw new Error('OPENCLAW_CHAT_ID environment variable is required');
+      throw new TelegramSendError('OPENCLAW_CHAT_ID environment variable is required', {});
     }
 
     // Get PR URL from environment or command line
