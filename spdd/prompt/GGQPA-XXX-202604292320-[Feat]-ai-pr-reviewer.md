@@ -1,7 +1,7 @@
 # AI PR Reviewer
 
 ## Requirements
-Implement an automated AI-powered PR review system that fetches GitHub PR diffs via GitHub Actions, sanitizes untrusted input, and triggers an OpenClaw LLM agent via Telegram Bot API to perform code reviews and return structured feedback to users.
+Implement an automated AI-powered PR review system that fetches GitHub PR diffs via GitHub Actions, sanitizes untrusted input, and triggers an OpenClaw LLM agent via Telegram user client (tdl/eilvelia/tdl) to perform code reviews and return structured feedback to users.
 
 ## Entities
 
@@ -29,7 +29,8 @@ class Diff {
 
 class TelegramMessage {
   +string chatId
-  +string botToken
+  +number apiId
+  +string apiHash
   +string text
   +string prUrl
   +boolean sent
@@ -63,7 +64,8 @@ class DiffSanitizer {
 }
 
 class EnvironmentConfig {
-  +string telegramBotToken
+  +number telegramApiId
+  +string telegramApiHash
   +string openclawChatId
   +string githubToken
   +string repoOwner
@@ -90,7 +92,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 2. **Technical Implementation**:
    - Use Node.js (ES Modules, ESM) with `@octokit/rest` for GitHub API access
    - Implement `dotenv` for environment variable management
-   - Use Telegram Bot API (`https://api.telegram.org/bot<TOKEN>/sendMessage`) for OpenClaw integration
+   - Use `eilvelia/tdl` Telegram user client library for OpenClaw integration
    - Store workflow in `.github/workflows/pr-review.yml`
 
 3. **Security and Validation**:
@@ -124,7 +126,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 ### Layered Architecture
 1. **Script Layer**: `get-diff.js`, `notify-claw.js`, and `errors.js` (shared) - entry points and shared error handling for GitHub Actions
 2. **Processing Layer**: Diff sanitization logic, token counting, message formatting
-3. **Integration Layer**: GitHub API (Octokit), Telegram Bot API
+3. **Integration Layer**: GitHub API (Octokit), Telegram user client (tdl/eilvelia/tdl)
 4. **Configuration Layer**: Environment variables (`.env`), workflow secrets
 5. **Error Handling Layer**: Custom error classes, try-catch blocks, process exit codes
 
@@ -183,7 +185,8 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 ### Create Script - notify-claw.js
 1. Responsibility: Send Telegram message to OpenClaw bot with PR URL and sanitized diff (used by index.js orchestrator)
 2. Attributes:
-   - `botToken`: string - Telegram bot token from env
+   - `apiId`: number - Telegram API ID from env (obtained from my.telegram.org)
+   - `apiHash`: string - Telegram API Hash from env
    - `chatId`: string - OpenClaw chat ID from env
    - `prUrl`: string - PR URL to send
    - `message`: string - formatted message
@@ -196,14 +199,15 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
        - Return formatted string
    - `sendTelegramMessage(message)`: Promise<void>
      - Logic:
-       - Construct URL: `https://api.telegram.org/bot${botToken}/sendMessage`
-       - Make POST request with JSON body: `{ chat_id: chatId, text: message }`
-       - Use Node.js built-in `https` module (Node 18+ compatible)
-       - Parse response, check `ok` field
+       - Configure tdl with `prebuilt-tdlib`
+       - Create TDLib client with `apiId` and `apiHash` from env
+       - Call `client.login()` to authenticate as Telegram user (uses saved session or prompts for credentials)
+       - Send message via `client.invoke({ _: 'sendMessage', chat_id: chatId, input_message_content: { _: 'inputMessageText', text: { _: 'formattedText', text: message } } })`
+       - Call `client.close()` to gracefully shut down the client
        - Error handling: throw TelegramSendError on failure
 4. Exports: `formatMessage`, `sendTelegramMessage`
 5. Annotations: None (ESM)
-6. Constraints: Message length must respect Telegram limits (4096 chars); sanitized diff must be included in message; no main() function - used by index.js orchestrator
+6. Constraints: Message length must respect Telegram limits (4096 chars); sanitized diff must be included in message; no main() function - used by index.js orchestrator; requires `tdl` and `prebuilt-tdlib` packages
 
 ### Create Script - index.js (Orchestrator)
 1. Responsibility: Orchestrate the PR review workflow by calling get-diff.js and notify-claw.js functions
@@ -213,7 +217,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
      - Logic:
        - Load env vars from `.env` (dotenv)
        - Get PR URL from `process.env.PR_URL` or command line args
-       - Validate required env vars: `GITHUB_TOKEN`, `TELEGRAM_BOT_TOKEN`, `OPENCLAW_CHAT_ID`
+       - Validate required env vars: `GITHUB_TOKEN`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `OPENCLAW_CHAT_ID`
        - Call `getSanitizedDiff(prUrl)` from `get-diff.js` to get sanitized diff
        - Call `formatMessage(prUrl, sanitizedDiff)` from `notify-claw.js`
        - Call `sendTelegramMessage(message)` from `notify-claw.js`
@@ -243,7 +247,8 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
             - Env:
               - `GITHUB_TOKEN`: from GitHub Actions secret
               - `PR_URL`: from `github.event.pull_request.html_url`
-              - `TELEGRAM_BOT_TOKEN`: from GitHub Actions secret
+              - `TELEGRAM_API_ID`: from GitHub Actions secret
+              - `TELEGRAM_API_HASH`: from GitHub Actions secret
               - `OPENCLAW_CHAT_ID`: from GitHub Actions secret
               - `MAX_TOKENS`: optional (default 8000)
          5. Error handling: If step fails, log error and exit with non-zero code
@@ -268,7 +273,8 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 1. Responsibility: Document required environment variables
 2. Content:
    ```
-   TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+   TELEGRAM_API_ID=your_telegram_api_id_here
+   TELEGRAM_API_HASH=your_telegram_api_hash_here
    OPENCLAW_CHAT_ID=your_openclaw_chat_id_here
    GITHUB_TOKEN=provided_by_github_actions
    REPO_OWNER=repository_owner
@@ -333,7 +339,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 
 4. **Integration Constraints**:
    - Must use GitHub Actions `GITHUB_TOKEN` (provided automatically)
-   - Must use Telegram Bot API v6+ endpoint format
+   - Must use `eilvelia/tdl` with TDLib (via `prebuilt-tdlib`) for Telegram user client
    - Must assume OpenClaw agent is pre-configured and running
    - Must handle Telegram API rate limits (429 responses) with retry (optional)
 
@@ -353,6 +359,7 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
    - Node.js version: 18+ (for ESM support and built-in fetch/https modules)
    - Must use `@octokit/rest` v19+ for GitHub API
    - Must use `dotenv` v16+ for configuration
+   - Must use `tdl` v4+ and `prebuilt-tdlib` for Telegram user client (eilvelia/tdl)
    - Must not require external databases or persistent storage
 
 8. **Data Constraints**:
@@ -363,5 +370,5 @@ EnvironmentConfig --> GitHubActionsWorkflow : provides secrets
 
 9. **API Constraints**:
    - GitHub API: Use `application/vnd.github.v3.diff` media type for diff
-   - Telegram API: Use JSON payload in POST request body
+   - Telegram (tdl/TDLib): Use `client.invoke({ _: 'sendMessage', ... })` to send messages as a user
    - OpenClaw: Expect text message with PR URL; response format defined in system prompt

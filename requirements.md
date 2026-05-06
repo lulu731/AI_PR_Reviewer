@@ -4,18 +4,18 @@
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   GitHub PR      │ ──▶  │ GitHub Actions  │ ──▶  │ Telegram Bot    │
-│   (trigger)     │      │ (workflow)     │      │ (OpenClaw)     │
+│   GitHub PR      │ ──▶ │ GitHub Actions  │ ──▶  │ Telegram User   │
+│   (trigger)     │      │ (workflow)      │      │ Client (tdl)    │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
-                                                          │
-                                                          ▼
-                                                 ┌─────────────────┐
-                                                 │ OpenClaw Agent  │
-                                                 │ (reviews PR)   │
-                                                 └─────────────────┘
-                                                          │
-                                                          ▼
-                                          User receives review in Telegram
+                                                           │
+                                                           ▼
+                                                  ┌─────────────────┐
+                                                  │ OpenClaw Agent  │
+                                                  │ (reviews PR)    │
+                                                  └─────────────────┘
+                                                           │
+                                                           ▼
+                                           User receives review in Telegram
 ```
 
 ## What This System Does
@@ -23,11 +23,11 @@
 - Fetch the PR diff using GitHub's Octokit
 - Sanitize/redact secrets from the diff
 - Handle large diffs (trim to token limits)
-- Send message to OpenClaw Telegram bot via Telegram Bot API
-- Include PR URL in the message
+- Send message to OpenClaw via Telegram user client (tdl/eilvelia/tdl)
+- Include PR URL and sanitized diff in the message
 - Trigger on PR open/reopen/update
 - Fetch the PR diff
-- Send to OpenClaw via Telegram Bot API
+- Send to OpenClaw via Telegram user client (tdl)
 - Define the system prompt for the PR reviewer agent
 - Agent should fetch PR details, review code, and return structured feedback
 
@@ -48,7 +48,8 @@ Based on the tutorial:
 ## Configuration Needed
 
 The following environment variables will be needed:
-- `TELEGRAM_BOT_TOKEN` - Token for the Telegram bot
+- `TELEGRAM_API_ID` - Telegram API ID (from my.telegram.org)
+- `TELEGRAM_API_HASH` - Telegram API Hash (from my.telegram.org)
 - `OPENCLAW_CHAT_ID` - Chat ID to send messages to
 - `GITHUB_TOKEN` - GitHub token for fetching PRs (provided by GitHub Actions)
 - `REPO_OWNER` - GitHub repository owner

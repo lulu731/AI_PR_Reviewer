@@ -17,14 +17,18 @@ async function main() {
   try {
     // Load and validate environment variables
     const githubToken = process.env.GITHUB_TOKEN;
-    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    const telegramApiId = process.env.TELEGRAM_API_ID;
+    const telegramApiHash = process.env.TELEGRAM_API_HASH;
     const openclawChatId = process.env.OPENCLAW_CHAT_ID;
 
     if (!githubToken) {
       throw new Error('GITHUB_TOKEN environment variable is required');
     }
-    if (!telegramBotToken) {
-      throw new Error('TELEGRAM_BOT_TOKEN environment variable is required');
+    if (!telegramApiId) {
+      throw new Error('TELEGRAM_API_ID environment variable is required');
+    }
+    if (!telegramApiHash) {
+      throw new Error('TELEGRAM_API_HASH environment variable is required');
     }
     if (!openclawChatId) {
       throw new Error('OPENCLAW_CHAT_ID environment variable is required');

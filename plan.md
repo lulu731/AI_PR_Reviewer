@@ -4,25 +4,25 @@
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   GitHub PR      │ ──▶  │ GitHub Actions  │ ──▶  │ Telegram Bot    │
-│   (trigger)     │      │ (workflow)     │      │ (OpenClaw)     │
+│   GitHub PR      │ ──▶ │ GitHub Actions  │ ──▶  │ Telegram User   │
+│   (trigger)     │      │ (workflow)      │      │ Client (tdl)    │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
-                                                          │
-                                                          ▼
-                                                 ┌─────────────────┐
-                                                 │ OpenClaw Agent  │
-                                                 │ (reviews PR)   │
-                                                 └─────────────────┘
-                                                          │
-                                                          ▼
-                                          User receives review in Telegram
+                                                           │
+                                                           ▼
+                                                  ┌─────────────────┐
+                                                  │ OpenClaw Agent  │
+                                                  │ (reviews PR)    │
+                                                  └─────────────────┘
+                                                           │
+                                                           ▼
+                                           User receives review in Telegram
 ```
 
 ## What This System Does
 
 1. **Trigger**: A PR is opened, updated, or reopened in a GitHub repository
 2. **Fetch**: GitHub Actions fetches the PR diff
-3. **Notify**: GitHub Actions sends a message to the OpenClaw Telegram bot with the PR URL
+3. **Notify**: GitHub Actions sends a message to OpenClaw via Telegram user client (tdl/eilvelia/tdl) with the PR URL
 4. **Review**: OpenClaw agent reviews the code using the LLM
 5. **Result**: User receives the review in Telegram
 
@@ -39,13 +39,13 @@
 - Handle large diffs (trim to token limits)
 
 ### 3. Create Telegram notification script (notify-claw.js)
-- Send message to OpenClaw Telegram bot via Telegram Bot API
-- Include PR URL in the message
+- Send message to OpenClaw via Telegram user client (tdl/eilvelia/tdl)
+- Include PR URL and sanitized diff in the message
 
 ### 4. Create GitHub Actions workflow (.github/workflows/pr-review.yml)
 - Trigger on PR open/reopen/update
 - Fetch the PR diff
-- Send to OpenClaw via Telegram Bot API
+- Send to OpenClaw via Telegram user client (tdl)
 
 ### 5. Create OpenClaw agent prompt for PR review
 - Define the system prompt for the PR reviewer agent
@@ -62,7 +62,8 @@ Based on the tutorial:
 ## Configuration Needed
 
 The following environment variables will be needed:
-- `TELEGRAM_BOT_TOKEN` - Token for the Telegram bot
+- `TELEGRAM_API_ID` - Telegram API ID (from my.telegram.org)
+- `TELEGRAM_API_HASH` - Telegram API Hash (from my.telegram.org)
 - `OPENCLAW_CHAT_ID` - Chat ID to send messages to
 - `GITHUB_TOKEN` - GitHub token for fetching PRs (provided by GitHub Actions)
 - `REPO_OWNER` - GitHub repository owner
