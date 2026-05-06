@@ -47,6 +47,86 @@ Date: 2026-04-29 23:48:23 (Europe/Paris)
 
 All code is generated following the SPDD prompt's Operations sequence and constraints. The system is ready for deployment with proper GitHub Secrets configuration (TELEGRAM_BOT_TOKEN, OPENCLAW_CHAT_ID).
 
+## Telegram Bot API → tdl User Client Migration (Completed: 2026-05-06 16:46)
+Date: 2026-05-06 16:46:00 (Europe/Paris)
+
+### Trigger
+- Task: Replace Telegram Bot API with `eilvelia/tdl` (Telegram user client) in `notify-claw.js`
+- Reason: Bot should execute instructions given by user, not act as a bot
+- Scope: Modify `notify-claw.js`, update `index.js`, update all documentation
+
+### Changes Applied
+1. **Rewrote notify-claw.js**:
+   - Replaced Telegram Bot API (`https` module) with `eilvelia/tdl` Telegram **user client**
+   - Now uses `tdl.configure({ tdjson: getTdjson() })` with `prebuilt-tdlib`
+   - Creates TDLib client with `apiId` (TELEGRAM_API_ID) and `apiHash` (TELEGRAM_API_HASH)
+   - Authentication via `client.login()` as a Telegram **user** (not bot)
+   - Message sending via `client.invoke({ _: 'sendMessage', chat_id, input_message_content: { _: 'inputMessageText', text: { _: 'formattedText', text: message } })`
+   - Graceful shutdown with `client.close()`
+   - Updated imports: `tdl`, `prebuilt-tdlib` (ESM compatible)
+
+2. **Updated index.js**:
+   - Changed environment variable validation from `TELEGRAM_BOT_TOKEN` to `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`
+
+3. **Updated package.json**:
+   - Added dependencies: `tdl: ^4.1.0`, `prebuilt-tdlib: ^0.1008063.0`
+   - Removed dependency on `https` module (no longer needed)
+
+4. **Created .env.example**:
+   - Documents new environment variables: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `OPENCLAW_CHAT_ID`
+   - Includes optional `TDL_DATABASE_DIR` and `TDL_FILES_DIR` settings
+
+5. **Updated Documentation**:
+   - `spdd/prompt/GGQPA-XXX-202604292320-[Feat]-ai-pr-reviewer.md`: All references updated
+   - `spdd/analysis/GGQPA-XXX-202604292240-[Analysis]-ai-pr-reviewer.md`: All references updated
+   - `plan.md`: Architecture overview and configuration updated
+   - `requirements.md`: Architecture overview and configuration updated
+   - `.github/workflows/pr-review.yml`: Environment variables updated
+
+### Environment Variables Migration
+| Old | New |
+|-----|-----|
+| `TELEGRAM_BOT_TOKEN` | `TELEGRAM_API_ID` (number, from my.telegram.org) |
+| `TELEGRAM_BOT_TOKEN` | `TELEGRAM_API_HASH` (string, from my.telegram.org) |
+| `OPENCLAW_CHAT_ID` | `OPENCLAW_CHAT_ID` (unchanged) |
+
+### Technical Details
+- **tdl version**: ^4.1.0 (Node.js Telegram user client library)
+- **prebuilt-tdlib version**: ^0.1008063.0 (Prebuilt TDLib binaries)
+- **Authentication**: User-based (requires `apiId` + `apiHash` from my.telegram.org)
+- **Session**: Saved in `_td_database` directory for persistence
+
+### Validation Results
+- ✅ **Syntax Check**: `notify-claw.js` passes `node --check`
+- ✅ **Import Validation**: ESM imports work correctly with `tdl` and `prebuilt-tdlib`
+- ✅ **No Bot API References**: All references to `TELEGRAM_BOT_TOKEN` and `api.telegram.org/bot` removed
+- ✅ **Documentation Consistency**: All docs updated to reflect tdl user client
+
+### Files Modified/Created
+- `notify-claw.js` - Major rewrite (Bot API → tdl user client)
+- `index.js` - Updated env var validation
+- `package.json` - Added tdl and prebuilt-tdlib dependencies
+- `.env.example` - Created with new variables
+- `spdd/prompt/GGQPA-XXX-202604292320-[Feat]-ai-pr-reviewer.md` - Updated
+- `spdd/analysis/GGQPA-XXX-202604292240-[Analysis]-ai-pr-reviewer.md` - Updated
+- `docs/session-notes.md` - Updated
+- `plan.md` - Updated
+- `requirements.md` - Updated
+- `.github/workflows/pr-review.yml` - Updated
+
+### Commit
+```
+feat: replace Telegram Bot API with eilvelia/tdl user client
+- Rewrote notify-claw.js to use tdl (Telegram user client) instead of Bot API
+- Updated index.js to validate TELEGRAM_API_ID and TELEGRAM_API_HASH
+- Added tdl@^4.1.0 and prebuilt-tdlib@^0.1008063.0 dependencies
+- Created .env.example with new Telegram user client variables
+- Updated all documentation (prompt, analysis, plan, requirements, session-notes)
+- Updated GitHub Actions workflow to use new environment variables
+```
+
+The system now uses Telegram user client (tdl) to send messages as a user, allowing the bot to execute instructions given by user.
+
 ## SPDD Sync - ESM Migration (Completed: 2026-04-05 14:17)
 Date: 2026-05-04 14:17:00 (Europe/Paris)
 
