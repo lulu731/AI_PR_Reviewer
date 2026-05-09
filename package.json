@@ -13,7 +13,7 @@
   "dependencies": {
     "@octokit/rest": "^22.0.1",
     "dotenv": "^17.4.2",
-    "tdl": "^4.1.0",
+    "tdl": "^7.1.0",
     "prebuilt-tdlib": "^0.1008063.0"
   },
   "engines": {
