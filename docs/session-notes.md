@@ -47,6 +47,61 @@ Date: 2026-04-29 23:48:23 (Europe/Paris)
 
 All code is generated following the SPDD prompt's Operations sequence and constraints. The system is ready for deployment with proper GitHub Secrets configuration (TELEGRAM_BOT_TOKEN, OPENCLAW_CHAT_ID).
 
+## Add `--addChatId` CLI Option (Completed: 2026-05-13 22:39)
+Date: 2026-05-13 22:39:00 (Europe/Paris)
+
+### Trigger
+- Command: `/spdd-generate spdd/prompt/GGQPA-XXX-202605131909-[Feat]-add-chat-id.md`
+- Scope: Add `--addChatId` CLI flag that connects to Telegram, listens for an incoming message, and displays the captured chat ID
+
+### Changes Applied
+1. **notify-claw.js** — Major refactor + new function:
+   - Extracted shared `createClient()` factory function from inline TDLib client creation in `sendTelegramMessage()`. Both `sendTelegramMessage` and `addChatIdMode` now use the same client configuration. Avoids duplication.
+   - Added `addChatIdMode()` — New async function that:
+     - Creates TDLib client via shared `createClient()`, calls `client.login()`
+     - Displays `"Waiting for message..."` after connection
+     - Listens for `updateNewMessage` events via `client.on('update', ...)`
+     - Extracts `chat_id` from `update.message.chat_id` and displays it
+     - 60-second timeout with graceful cleanup
+     - Ctrl+C handler (`SIGINT`) to close client and exit cleanly
+     - `try/finally` block ensures `client.close()` is always called
+     - `TelegramSendError` for TDLib errors
+   - Updated exports: now exports `createClient` and `addChatIdMode` alongside existing
+
+2. **index.js** — Flag detection:
+   - Added `addChatIdMode` to import from `notify-claw.js`
+   - Added early check at top of `main()`: `if (process.argv.includes('--addChatId'))` bypasses normal flow entirely
+
+### Acceptance Criteria Verification
+| AC# | Description | Status |
+|-----|-------------|--------|
+| AC-1 | `--addChatId` flag recognized from `process.argv` | ✅ |
+| AC-2 | Connects to Telegram using existing TDLib setup | ✅ |
+| AC-3 | Listens for incoming messages via TDLib updates | ✅ |
+| AC-4 | `chat_id` extracted from incoming message update | ✅ |
+| AC-5 | "Waiting for message..." displayed after connection | ✅ |
+| AC-6 | Captured chat ID displayed to user | ✅ |
+| AC-7 | Ctrl+C cancels cleanly without corrupting TDLib state | ✅ |
+| AC-8 | 60-second timeout if no message is received | ✅ |
+
+### Safeguards Compliance
+- ✅ **No new dependencies** — reuses existing `tdl` library
+- ✅ **Existing PR review flow unchanged** — flag detection at top of `main()` bypasses normal flow
+- ✅ **No modifications to `errors.js`** — reuses `TelegramSendError`
+- ✅ **Syntax check** — both `index.js` and `notify-claw.js` pass `node --check`
+
+### Files Modified
+- `notify-claw.js` — Major update: extracted `createClient()`, added `addChatIdMode()`, updated exports
+- `index.js` — Minor update: added import + flag detection
+
+### Commit
+```
+feat: add --addChatId CLI option for capturing Telegram chat ID
+- Extracted shared createClient() factory in notify-claw.js
+- Implemented addChatIdMode() with TDLib update listener, 60s timeout, Ctrl+C handling
+- Added --addChatId flag detection in index.js (bypasses normal PR review flow)
+```
+
 ## Telegram Bot API → tdl User Client Migration (Completed: 2026-05-06 16:46)
 Date: 2026-05-06 16:46:00 (Europe/Paris)
 

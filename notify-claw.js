@@ -12,6 +12,37 @@ import { TelegramSendError } from './errors.js';
 const MAX_MESSAGE_LENGTH = 4096; // Telegram message limit
 
 /**
+ * Create and configure a TDLib client using environment credentials.
+ * Shared factory for both sendTelegramMessage and addChatIdMode.
+ * @returns {object} Configured TDLib client instance
+ */
+function createClient() {
+  tdl.configure({ tdjson: getTdjson() });
+
+  const client = tdl.createClient({
+    apiId: parseInt(process.env.TELEGRAM_API_ID, 10),
+    apiHash: process.env.TELEGRAM_API_HASH,
+    databaseDirectory: process.env.TDL_DATABASE_DIR || '_td_database',
+    filesDirectory: process.env.TDL_FILES_DIR || '_td_files',
+    tdlibParameters: {
+      use_message_database: true,
+      use_secret_chats: true,
+      system_language_code: 'en',
+      application_version: '1.0',
+      device_model: 'Unknown device',
+      system_version: 'Unknown',
+      enable_storage_optimizer: true
+    }
+  });
+
+  client.on('error', (err) => {
+    console.error('TDLib client error:', err);
+  });
+
+  return client;
+}
+
+/**
  * Format message for OpenClaw agent with PR URL and sanitized diff
  * @param {string} prUrl - GitHub PR URL
  * @param {string} sanitizedDiff - Sanitized diff content
@@ -114,20 +145,8 @@ async function sendTelegramMessage(message) {
     throw new TelegramSendError('OPENCLAW_CHAT_ID environment variable is required', {});
   }
 
-  // Configure tdl with prebuilt-tdlib
-  tdl.configure({ tdjson: getTdjson() });
-
-  // Create client with API credentials
-  const client = tdl.createClient({
-    apiId: parseInt(apiId, 10),
-    apiHash: apiHash,
-    databaseDirectory: process.env.TDL_DATABASE_DIR || '_td_database',
-    filesDirectory: process.env.TDL_FILES_DIR || '_td_files'
-  });
-
-  client.on('error', (err) => {
-    console.error('TDLib client error:', err);
-  });
+  // Create client using shared factory
+  const client = createClient();
 
   try {
     console.log('📤 Logging in to Telegram as user...');
@@ -137,6 +156,14 @@ async function sendTelegramMessage(message) {
     const chatId = await resolveChatId(client, chatIdStr);
 
     console.log(`📤 Sending message to chat ${chatId}...`);
+
+    const chats = await client.invoke({
+    _: 'getChats',
+    chat_list: { _: 'chatListMain' },
+    limit: 10
+    })
+
+console.log('A part of my chat list:', chats);
 
     // Send message using TDLib sendMessage method
     await client.invoke({
@@ -153,13 +180,13 @@ async function sendTelegramMessage(message) {
 
     console.log('✅ Message sent to Telegram successfully');
   } catch (error) {
-    if (error instanceof tdl.TDLibError) {
+    if (error instanceof tdl.TdlError) {
       throw new TelegramSendError(`TDLib error: ${error.message}`, {
         code: error.code,
         message: error.message
       });
     }
-    throw new TelegramSendError(`Failed to send Telegram message: ${error.message}`, {
+    throw new TelegramSendError(`Failed to send Telegram message : ${error.message}`, {
       originalError: error.message
     });
   } finally {
@@ -173,7 +200,74 @@ async function sendTelegramMessage(message) {
   }
 }
 
+/**
+ * Capture a Telegram chat ID by listening for incoming messages.
+ * Connects to Telegram, waits for a message, extracts chat_id, and displays it.
+ * @returns {Promise<void>}
+ */
+async function addChatIdMode() {
+  const client = createClient();
+  let timeoutId = null;
+  let sigintHandler = null;
+
+  try {
+    console.log('🔑 Connecting to Telegram...');
+    await client.login();
+
+    console.log('Waiting for message...');
+
+    // Set a 60-second timeout
+    timeoutId = setTimeout(() => {
+      console.log('⚠️ Timeout: No message received within 60 seconds.');
+      process.exit(0);
+    }, 60000);
+
+    // Handle Ctrl+C gracefully
+    sigintHandler = () => {
+      console.log('\n⚠️ Cancelled by user.');
+      clearTimeout(timeoutId);
+      client.close().then(() => process.exit(0)).catch(() => process.exit(0));
+    };
+    process.on('SIGINT', sigintHandler);
+
+    // Listen for incoming messages - resolve on first updateNewMessage
+    await new Promise((resolve) => {
+      client.on('update', (update) => {
+        if (update._ === 'updateNewMessage') {
+          const chatId = update.message.chat_id;
+          clearTimeout(timeoutId);
+          console.log(`Chat ID captured: ${chatId}`);
+          resolve();
+        }
+      });
+    });
+  } catch (error) {
+    if (error instanceof tdl.TdlError) {
+      throw new TelegramSendError(`TDLib error: ${error.message}`, {
+        code: error.code,
+        message: error.message
+      });
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (sigintHandler) {
+      process.removeListener('SIGINT', sigintHandler);
+    }
+    try {
+      await client.close();
+      console.log('✅ Telegram client closed');
+    } catch (closeError) {
+      console.error('Warning: Failed to close TDLib client gracefully:', closeError.message);
+    }
+  }
+}
+
 export {
   formatMessage,
-  sendTelegramMessage
+  sendTelegramMessage,
+  createClient,
+  addChatIdMode
 };

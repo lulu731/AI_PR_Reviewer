@@ -6,7 +6,7 @@
 
 import 'dotenv/config';
 import { getSanitizedDiff } from './get-diff.js';
-import { formatMessage, sendTelegramMessage } from './notify-claw.js';
+import { formatMessage, sendTelegramMessage, addChatIdMode } from './notify-claw.js';
 import { GitHubAPIError, TelegramSendError, DiffSanitizationError } from './errors.js';
 
 /**
@@ -14,6 +14,12 @@ import { GitHubAPIError, TelegramSendError, DiffSanitizationError } from './erro
  * @returns {Promise<void>}
  */
 async function main() {
+  // Check for --addChatId flag first (bypasses normal flow entirely)
+  if (process.argv.includes('--addChatId')) {
+    await addChatIdMode();
+    process.exit(0);
+  }
+
   try {
     // Load and validate environment variables
     const githubToken = process.env.GITHUB_TOKEN;
