@@ -6,18 +6,18 @@ An automated Pull Request review system that integrates GitHub Actions with Open
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   GitHub PR      │ ──▶  │ GitHub Actions  │ ──▶  │ Telegram Bot    │
-│   (trigger)     │      │ (workflow)     │      │ (OpenClaw)     │
+│   GitHub PR     │ ──▶  │ GitHub Actions  │ ──▶  │ Telegram Bot    │
+│   (trigger)     │      │ (workflow)      │      │ (OpenClaw)      │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
-                                                         │
-                                                         ▼
-                                                ┌─────────────────┐
-                                                │ OpenClaw Agent  │
-                                                │ (reviews PR)   │
-                                                └─────────────────┘
-                                                         │
-                                                         ▼
-                                       User receives review in Telegram
+                                                           │
+                                                           ▼
+                                                  ┌─────────────────┐
+                                                  │ OpenClaw Agent  │
+                                                  │ (reviews PR)    │
+                                                  └─────────────────┘
+                                                           │
+                                                           ▼
+                                              User receives review in Telegram
 ```
 
 ## Features
@@ -61,15 +61,15 @@ An automated Pull Request review system that integrates GitHub Actions with Open
 
 Set the following environment variables (either in `.env` file or GitHub Actions secrets):
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Yes | Token for the Telegram bot |
-| `OPENCLAW_CHAT_ID` | Yes | Chat ID to send messages to |
-| `GITHUB_TOKEN` | Yes | GitHub token for fetching PRs (auto-provided by GitHub Actions) |
-| `REPO_OWNER` | Yes | GitHub repository owner |
-| `REPO_NAME` | Yes | GitHub repository name |
-| `MAX_TOKENS` | No | Maximum token limit for diffs (default: 8000) |
-| `PR_URL` | No | PR URL for manual testing (can also be passed as CLI argument) |
+| Variable             | Required | Description                                                     |
+|----------------------|----------|-----------------------------------------------------------------|
+| `TELEGRAM_BOT_TOKEN` | Yes      | Token for the Telegram bot                                      |
+| `OPENCLAW_CHAT_ID`   | Yes      | Chat ID to send messages to                                     |
+| `GITHUB_TOKEN`       | Yes      | GitHub token for fetching PRs (auto-provided by GitHub Actions) |
+| `REPO_OWNER`         | Yes      | GitHub repository owner                                         |
+| `REPO_NAME`          | Yes      | GitHub repository name                                          |
+| `MAX_TOKENS`         | No       | Maximum token limit for diffs (default: 8000)                   |
+| `PR_URL`             | No       | PR URL for manual testing (can also be passed as CLI argument)  |
 
 ## Usage
 
@@ -77,8 +77,7 @@ Set the following environment variables (either in `.env` file or GitHub Actions
 Set up a GitHub Actions workflow (e.g., `.github/workflows/pr-review.yml`) to trigger on PR events. The workflow should:
 1. Check out the repository
 2. Install dependencies
-3. Run `get-diff.js` to fetch and sanitize the diff
-4. Pipe the output to `notify-claw.js` to send the review request
+3. Run `node index.js` to fetch, sanitize the diff and send message to Telegram
 
 ### Manual Testing
 Use the provided test script to verify API integrations:
