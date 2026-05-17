@@ -157,13 +157,13 @@ async function sendTelegramMessage(message) {
 
     console.log(`📤 Sending message to chat ${chatId}...`);
 
-    const chats = await client.invoke({
-    _: 'getChats',
-    chat_list: { _: 'chatListMain' },
-    limit: 10
-    })
+    //const chats = await client.invoke({
+    //_: 'getChats',
+    //chat_list: { _: 'chatListMain' },
+    //limit: 10
+    //})
 
-console.log('A part of my chat list:', chats);
+    //console.log('A part of my chat list:', chats);
 
     // Send message using TDLib sendMessage method
     await client.invoke({
@@ -178,8 +178,14 @@ console.log('A part of my chat list:', chats);
       }
     });
 
-    console.log('✅ Message sent to Telegram successfully');
+    client.on('update', update => {
+      if (update._ === 'updateMessageSendSucceeded') {
+        console.log ('✅ Message sent to Telegram successfully');
+      }
+    });
+
   } catch (error) {
+
     if (error instanceof tdl.TdlError) {
       throw new TelegramSendError(`TDLib error: ${error.message}`, {
         code: error.code,
@@ -189,14 +195,6 @@ console.log('A part of my chat list:', chats);
     throw new TelegramSendError(`Failed to send Telegram message : ${error.message}`, {
       originalError: error.message
     });
-  } finally {
-    // Gracefully close the client
-    try {
-      await client.close();
-      console.log('✅ Telegram client closed');
-    } catch (closeError) {
-      console.error('Warning: Failed to close TDLib client gracefully:', closeError.message);
-    }
   }
 }
 

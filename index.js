@@ -74,7 +74,12 @@ async function main() {
     await sendTelegramMessage(message);
 
     console.log('✅ PR review request sent to OpenClaw');
-    process.exit(0);
+
+    setTimeout(()=>{
+      console.log('✅ Telegram client exit after 10s');
+      process.exit(0);
+    }, 10000);
+
   } catch (error) {
     console.error('❌ Error:', error.message);
 
